@@ -1,0 +1,82 @@
+services:
+  # -------------------------------------------------------------------------
+  # The Laravel API application.
+  # -------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: manager_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    environment:
+      APP_NAME: "M.N.G.R Manager"
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+
+      # Application encryption key. Regenerate with:
+      #   php -r "echo 'base64:'.base64_encode(random_bytes(32));"
+      APP_KEY: "base64:X0uXDCwuLlee1PMA1XcbfIJ+j6BCyeuxCX1Lyte+gVA="
+
+      # MySQL connection settings — these are injected into the container's
+      # environment, so no `.env` file is needed at runtime.
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: manager
+      DB_USERNAME: manager
+      DB_PASSWORD: secret
+
+      SESSION_DRIVER: database
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # -------------------------------------------------------------------------
+  # MySQL 8 — the database.
+  # -------------------------------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: manager_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: manager
+      MYSQL_USER: manager
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: rootsecret
+    ports:
+      # Exposed so you can connect with a local MySQL client too.
+      - "3306:3306"
+    volumes:
+      # Named volume so data survives `docker compose down`.
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootsecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # -------------------------------------------------------------------------
+  # phpMyAdmin — a web UI for inspecting the database. Great for learning:
+  # open http://localhost:8080 (server "db", user "manager", password "secret").
+  # -------------------------------------------------------------------------
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: manager_pma
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+
+volumes:
+  db_data:
