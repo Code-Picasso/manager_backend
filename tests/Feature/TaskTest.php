@@ -83,6 +83,51 @@ class TaskTest extends TestCase
             ->assertJsonPath('title', 'Updated');
     }
 
+    public function test_a_task_can_be_created_without_a_description(): void
+    {
+        // `tasks.description` is NOT NULL, so this must store an empty string.
+        $payload = $this->validTask();
+        unset($payload['description']);
+
+        $this->postJson('/api/tasks', $payload)
+            ->assertCreated()
+            ->assertJsonPath('description', '');
+
+        $this->assertDatabaseHas('tasks', ['description' => '']);
+    }
+
+    public function test_a_task_description_can_be_cleared(): void
+    {
+        $task = Task::factory()->create([
+            'user_id' => $this->user->id,
+            'description' => 'Something',
+        ]);
+
+        $this->putJson("/api/tasks/{$task->id}", $this->validTask(['description' => '']))
+            ->assertOk()
+            ->assertJsonPath('description', '');
+
+        $this->assertDatabaseHas('tasks', ['id' => $task->id, 'description' => '']);
+    }
+
+    public function test_an_explicit_null_description_is_stored_as_empty(): void
+    {
+        // An explicit null description is still stored as an empty string.
+        $this->postJson('/api/tasks', $this->validTask(['description' => null]))
+            ->assertCreated()
+            ->assertJsonPath('description', '');
+
+        $this->assertDatabaseHas('tasks', ['description' => '']);
+    }
+
+    public function test_a_task_can_be_saved_with_no_sub_tasks(): void
+    {
+        // An empty sub_tasks array is accepted.
+        $this->postJson('/api/tasks', $this->validTask(['sub_tasks' => []]))
+            ->assertCreated()
+            ->assertJsonPath('sub_tasks', []);
+    }
+
     public function test_deleting_a_task_soft_deletes_it(): void
     {
         $task = Task::factory()->create(['user_id' => $this->user->id]);
@@ -90,8 +135,7 @@ class TaskTest extends TestCase
 
         $this->deleteJson("/api/tasks/{$task->id}")->assertNoContent();
 
-        // Marked deleted (not removed) so it can be restored; hidden from the
-        // list; and its sub-tasks survive for the undo.
+        // Soft-deleted: hidden from the list, with its sub-tasks intact.
         $this->assertSoftDeleted('tasks', ['id' => $task->id]);
         $this->assertDatabaseCount('sub_tasks', 1);
         $this->getJson('/api/tasks')->assertOk()->assertJsonCount(0);

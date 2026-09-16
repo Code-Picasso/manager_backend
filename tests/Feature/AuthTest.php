@@ -109,10 +109,7 @@ class AuthTest extends TestCase
 
         $this->withToken($token)->postJson('/api/logout')->assertOk();
 
-        // The auth manager caches the resolved guard (and its user) across
-        // requests *within a single test*. Flush it so the next request is
-        // forced to re-check the (now deleted) bearer token against the DB —
-        // which is exactly what a fresh request does in a real deployment.
+        // Flush the cached guard so the next request re-checks the deleted token.
         $this->app['auth']->forgetGuards();
 
         // The revoked token must no longer authenticate.

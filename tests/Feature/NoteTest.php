@@ -36,6 +36,30 @@ class NoteTest extends TestCase
         $this->getJson('/api/notes')->assertOk()->assertJsonCount(2);
     }
 
+    public function test_a_note_can_be_created_without_a_body(): void
+    {
+        // `notes.content` must end up holding a string, not null.
+        $this->postJson('/api/notes', ['title' => 'Ideas'])
+            ->assertStatus(201)
+            ->assertJsonPath('content', '');
+
+        $this->assertDatabaseHas('notes', ['title' => 'Ideas', 'content' => '']);
+    }
+
+    public function test_a_note_body_can_be_cleared(): void
+    {
+        $note = Note::factory()->create([
+            'user_id' => $this->user->id,
+            'content' => 'Something',
+        ]);
+
+        $this->putJson("/api/notes/{$note->id}", ['content' => ''])
+            ->assertOk()
+            ->assertJsonPath('content', '');
+
+        $this->assertDatabaseHas('notes', ['id' => $note->id, 'content' => '']);
+    }
+
     public function test_user_can_update_a_note(): void
     {
         $note = Note::factory()->create(['user_id' => $this->user->id]);

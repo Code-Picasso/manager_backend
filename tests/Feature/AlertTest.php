@@ -91,4 +91,39 @@ class AlertTest extends TestCase
 
         $this->assertDatabaseHas('alerts', ['is_read' => true]);
     }
+
+    public function test_listing_alerts_reconciles_without_a_task_change(): void
+    {
+        // No explicit sync: listing the alerts runs the scan.
+        Task::factory()->create([
+            'user_id' => $this->user->id,
+            'status' => 'today',
+            'date' => now()->subDay()->toDateString(),
+            'end_time' => '10:00',
+        ]);
+
+        $this->assertDatabaseCount('alerts', 0);
+
+        $this->getJson('/api/alerts')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.is_success', false);
+    }
+
+    public function test_listing_alerts_never_resurrects_a_read_alert(): void
+    {
+        Task::factory()->create(['user_id' => $this->user->id, 'status' => 'completed']);
+
+        // First read derives the alert, then the user dismisses it.
+        $this->getJson('/api/alerts')->assertOk()->assertJsonCount(1);
+        $this->postJson('/api/alerts/read-all')->assertOk();
+
+        // Reading again re-runs the scan; the alert must stay read and singular.
+        $this->getJson('/api/alerts')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.is_read', true);
+
+        $this->assertDatabaseCount('alerts', 1);
+    }
 }

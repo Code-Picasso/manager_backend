@@ -5,18 +5,7 @@ namespace App\Rules;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
-/**
- * A reusable validation rule enforcing the app's password policy.
- *
- * This is a *custom rule object*. Rather than copy the same pile of `regex:`
- * strings into every request that accepts a password, we express the policy
- * once and reuse it: `new StrongPassword`. Laravel calls `validate()` for us
- * and collects whatever the `$fail` closure reports.
- *
- * The policy mirrors the Flutter app's Validators.password: at least 6
- * characters, with at least one upper-case letter, one number and one special
- * character.
- */
+/** A reusable validation rule enforcing the app's password policy. */
 class StrongPassword implements ValidationRule
 {
     private const SPECIAL_CHARACTERS = '/[~!@#\$%^&*()_+\-=\[\]{}|;:,.<>?]/';

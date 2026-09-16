@@ -12,13 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('tasks', function (Blueprint $table) {
-            // A UUID primary key (matching the Flutter app's string ids) rather
-            // than the usual auto-incrementing integer.
+            // UUID primary key.
             $table->uuid('id')->primary();
 
-            // foreignId() creates an unsigned big-int column matching users.id,
-            // then constrained() turns it into a foreign key. cascadeOnDelete()
-            // means deleting a user deletes their tasks automatically.
+            // Owning user; deleting the user deletes their tasks.
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
 
             $table->string('title');
@@ -28,8 +25,7 @@ return new class extends Migration
             $table->string('category')->default('work');
             $table->string('status')->default('today');
 
-            // The due date (date only). Start/end times are "HH:MM" strings,
-            // exactly as the Flutter app stores them.
+            // Due date, with "HH:MM" start and end times.
             $table->date('date');
             $table->string('start_time')->default('09:00');
             $table->string('end_time')->default('10:00');

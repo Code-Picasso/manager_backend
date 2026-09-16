@@ -15,8 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
 
-            // The deterministic reconciliation key (e.g. "task-completed-<uuid>").
-            // Unique, so re-running the alert scan can never insert a duplicate.
+            // Unique reconciliation key for an alert.
             $table->string('key')->unique();
 
             $table->string('message');

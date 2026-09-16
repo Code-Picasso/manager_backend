@@ -17,36 +17,16 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
-/**
- * CRUD for tasks, plus the sub-task toggle that drives status auto-derivation.
- *
- * Notice two patterns worth internalising:
- *   - Route model binding: type-hinting `Task $task` makes Laravel look the row
- *     up by the `{task}` route segment (throwing 404 if absent).
- *   - Ownership scoping: every method then checks the bound task belongs to the
- *     authenticated user, so one user can never read or modify another's rows.
- */
+/** CRUD for tasks, plus the sub-task toggle that drives status auto-derivation. */
 class TaskController extends Controller
 {
-    /**
-     * Constructor injection: Laravel's service container resolves the
-     * TaskAlertsService dependency and passes it in automatically.
-     */
+    /** Injects the alert service. */
     public function __construct(private readonly TaskAlertsService $alerts) {}
 
-    /**
-     * List the authenticated user's tasks, oldest date first, with sub-tasks
-     * eager-loaded so serialisation does not issue one query per task.
-     *
-     * Supports an optional `?status=today|comingUp|completed` filter so the
-     * app's board tabs can be served server-side instead of filtering a full
-     * list on the device.
-     */
+    /** List the authenticated user's tasks, oldest first, optionally by status. */
     public function index(Request $request): AnonymousResourceCollection
     {
-        // Validating the query string means an unknown status returns a 422
-        // rather than a silent empty list. (A heavier filter set would move to
-        // a Form Request, like the write endpoints.)
+        // Validates the optional status query parameter.
         $validated = $request->validate([
             'status' => ['sometimes', Rule::enum(TaskStatus::class)],
         ]);
@@ -64,17 +44,14 @@ class TaskController extends Controller
         return TaskResource::collection($query->get());
     }
 
-    /**
-     * Create a task (and its sub-tasks) in a single database transaction.
-     */
+    /** Create a task and its sub-tasks in a single transaction. */
     public function store(StoreTaskRequest $request): JsonResponse
     {
         $data = $request->validated();
         $subTasks = $data['sub_tasks'] ?? [];
         unset($data['sub_tasks']);
 
-        // A transaction makes "task + sub-tasks" atomic: if inserting a
-        // sub-task fails, the task insert is rolled back too.
+        // Task and sub-task inserts are atomic.
         $task = DB::transaction(function () use ($request, $data, $subTasks) {
             $task = $request->user()->tasks()->create($data);
 
@@ -91,9 +68,7 @@ class TaskController extends Controller
         return (new TaskResource($task))->response()->setStatusCode(201);
     }
 
-    /**
-     * Show a single task.
-     */
+    /** Show a single task. */
     public function show(Request $request, Task $task): TaskResource
     {
         abort_unless($task->user_id === $request->user()->id, 404);
@@ -101,10 +76,7 @@ class TaskController extends Controller
         return new TaskResource($task->load('subTasks'));
     }
 
-    /**
-     * Update a task. Mirrors the Flutter app's full-replacement semantics: the
-     * submitted sub-task list replaces the existing one.
-     */
+    /** Update a task, replacing its sub-task list with the submitted one. */
     public function update(UpdateTaskRequest $request, Task $task): TaskResource
     {
         abort_unless($task->user_id === $request->user()->id, 404);
@@ -124,13 +96,7 @@ class TaskController extends Controller
         return new TaskResource($task->fresh('subTasks'));
     }
 
-    /**
-     * Delete a task.
-     *
-     * This is a *soft* delete: the row keeps its id and its sub-tasks, but is
-     * hidden from every normal query. That is what makes the app's "Undo"
-     * button possible — see restore() below.
-     */
+    /** Soft-delete a task, keeping its row and sub-tasks. */
     public function destroy(Request $request, Task $task): Response
     {
         abort_unless($task->user_id === $request->user()->id, 404);
@@ -142,13 +108,7 @@ class TaskController extends Controller
         return response()->noContent();
     }
 
-    /**
-     * Restore a soft-deleted task (the app's "Undo" action).
-     *
-     * Route model binding reaches soft-deleted rows here because the route is
-     * declared with ->withTrashed(). Because the sub-tasks were never deleted,
-     * the task comes back exactly as it was.
-     */
+    /** Restore a soft-deleted task. */
     public function restore(Request $request, Task $task): TaskResource
     {
         abort_unless($task->user_id === $request->user()->id, 404);
@@ -160,13 +120,7 @@ class TaskController extends Controller
         return new TaskResource($task->load('subTasks'));
     }
 
-    /**
-     * Flip one sub-task's done state, then re-derive the parent's status.
-     *
-     * This is the single place "tick a box" happens; because it funnels through
-     * Task::withAutoStatus, ticking the last sub-task completes the task and
-     * un-ticking one on a completed task sends it back to Today / Coming up.
-     */
+    /** Flip one sub-task's done state and re-derive the parent's status. */
     public function toggleSubTask(Request $request, Task $task, SubTask $subTask): TaskResource
     {
         abort_unless($task->user_id === $request->user()->id, 404);
@@ -181,11 +135,7 @@ class TaskController extends Controller
         return new TaskResource($task);
     }
 
-    /**
-     * Replace a task's sub-task list with the supplied array, preserving order
-     * via the `position` column. The server is authoritative for sub-task ids,
-     * so old rows are deleted and new rows are created with fresh UUIDs.
-     */
+    /** Replace a task's sub-tasks, preserving order via the position column. */
     private function replaceSubTasks(Task $task, array $subTasks): void
     {
         $task->subTasks()->delete();
@@ -199,13 +149,7 @@ class TaskController extends Controller
         }
     }
 
-    /**
-     * Reconcile the user's alerts after a task change.
-     *
-     * Deliberately best-effort: if alert bookkeeping fails we log it rather
-     * than failing the task write that triggered it (mirroring the Flutter
-     * app's `_syncAlerts`).
-     */
+    /** Reconcile the user's alerts, logging failures instead of throwing. */
     private function syncAlerts(User $user): void
     {
         try {

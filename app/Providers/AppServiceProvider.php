@@ -8,13 +8,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
-/**
- * The application's service provider.
- *
- * A service provider is Laravel's bootstrap hook: `register()` runs early for
- * container bindings, and `boot()` runs once everything is registered and is
- * the right place for rate-limit definitions, view composers, etc.
- */
+/** The application's service provider. */
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -30,15 +24,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // By default Laravel wraps every JSON resource in a top-level "data"
-        // key. The Flutter app expects plain objects/arrays, so we disable the
-        // wrapper globally for a cleaner, directly-usable API shape.
+        // Return resources unwrapped — the API answers with bare objects/arrays.
         JsonResource::withoutWrapping();
 
-        // Define the "api" rate limiter that the throttleApi() middleware (see
-        // bootstrap/app.php) applies to every /api request. Each authenticated
-        // user (or, for unauthenticated requests, each IP) gets 60 requests
-        // per minute.
+        // The "api" rate limiter: 60 requests per minute per user or IP.
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });

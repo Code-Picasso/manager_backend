@@ -4,21 +4,24 @@ namespace App\Http\Requests;
 
 use App\Enums\TaskCategory;
 use App\Enums\TaskStatus;
+use App\Http\Requests\Concerns\NormalizesEmptyText;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-/**
- * Validates the "create a task" request.
- *
- * The field names are snake_case (idiomatic Laravel). The README includes a
- * table mapping them to the Flutter app's camelCase payload (start_time ->
- * startTime, sub_tasks -> subTasks, and so on).
- */
+/** Validates the "create a task" request. */
 class StoreTaskRequest extends FormRequest
 {
+    use NormalizesEmptyText;
+
     public function authorize(): bool
     {
         return true;
+    }
+
+    /** Normalizes an empty description field to an empty string. */
+    protected function prepareForValidation(): void
+    {
+        $this->normalizeEmptyText(['description']);
     }
 
     public function rules(): array
@@ -26,12 +29,11 @@ class StoreTaskRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
-            // Rule::enum rejects any string that isn't a valid TaskCategory
-            // case value ('work' or 'personal').
+            // Only accepts a valid TaskCategory case value.
             'category' => ['required', Rule::enum(TaskCategory::class)],
             'status' => ['required', Rule::enum(TaskStatus::class)],
             'date' => ['required', 'date'],
-            // date_format:H:i enforces the "HH:MM" shape the app uses.
+            // Expects an HH:MM time string.
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['required', 'date_format:H:i'],
             'sub_tasks' => ['sometimes', 'array'],

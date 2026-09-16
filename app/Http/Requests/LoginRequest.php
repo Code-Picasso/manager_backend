@@ -4,11 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-/**
- * Validates the "sign in" request. Note there is deliberately no password
- * strength rule here — you only enforce strength when a password is *set*, not
- * when someone is trying to prove they know it.
- */
+/** Validates the "sign in" request. */
 class LoginRequest extends FormRequest
 {
     public function authorize(): bool

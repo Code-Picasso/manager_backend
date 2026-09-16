@@ -344,6 +344,33 @@ in every request that accepts a password, each one just adds `new StrongPassword
 to its rules. A custom rule is any class implementing `ValidationRule` whose
 `validate()` method reports problems through the `$fail` closure.
 
+#### `prepareForValidation()` and empty strings
+
+Laravel's global `ConvertEmptyStringsToNull` middleware rewrites every `""` in the
+request to `null` **before** validation. That is a sensible default for genuinely
+optional columns — but `tasks.description` and `notes.content` are `NOT NULL`
+with an empty-string default, so a `null` here reaches the database and the write
+fails with an integrity-constraint violation (a `500`, not a `422`).
+
+The rules on those fields say `nullable`, so a client that sends `""` — which the
+Flutter app does for every task saved without a description — is being told the
+value is acceptable right up until it isn't.
+
+`app/Http/Requests/Concerns/NormalizesEmptyText.php` closes that gap:
+
+```php
+protected function prepareForValidation(): void
+{
+    $this->normalizeEmptyText(['description']);
+}
+```
+
+`prepareForValidation()` runs before `rules()`, so the value is a string again by
+the time validation and the controller see it. The columns also carry
+`protected $attributes = ['description' => ''];` on their models, mirroring the
+migration defaults — without that, `POST /tasks` would answer `null` for a task
+created without a description while `GET /tasks` answered `""` for the same row.
+
 ### API Resources
 
 `app/Http/Resources/*.php` are the "view" layer for JSON. They control exactly
@@ -536,40 +563,57 @@ sub_tasks: [{ title, is_done }] }` (sub-tasks get server-generated ids).
 | GET    | `/api/alerts`          | list alerts, newest first  |
 | POST   | `/api/alerts/read-all` | mark all as read           |
 
+`GET /api/alerts` reconciles before it lists. That matters: a deadline can pass
+while the app is open without anything being written, so if the sweep only ran
+after task mutations, an "overdue" warning would not appear until the user next
+edited a task. Reconciliation is idempotent and leaves existing `is_read` flags
+alone, so sweeping on read costs one query and can neither duplicate nor
+resurrect an alert. (See `AlertController::index`.)
+
 ---
 
 ## Mapping to the Flutter app
 
-The backend is snake_case (idiomatic Laravel) while the Flutter app uses
-camelCase. When you wire them together, map:
+**This is done.** The Flutter app in [`../manager`](../manager) is wired to this
+API; [`../manager/API_INTEGRATION.md`](../manager/API_INTEGRATION.md) is the
+client-side reference for the contract.
 
-| Flutter app (camelCase) | Backend (snake_case)          | Notes                           |
-| ----------------------- | ----------------------------- | ------------------------------- |
-| `startTime`             | `start_time`                  | `"HH:MM"` string                |
-| `endTime`               | `end_time`                    | `"HH:MM"` string                |
-| `subTasks`              | `sub_tasks`                   | array of `{title, is_done}`     |
-| `isDone`                | `is_done`                     |                                 |
-| `isSuccess` / `isRead`  | `is_success` / `is_read`      |                                 |
-| `createdAt` / `updatedAt` | `created_at` / `updated_at` | Flutter: epoch ms; backend: ISO |
-| `date` (epoch ms)       | `date` (`"YYYY-MM-DD"`)       | Flutter stores a full timestamp |
+The backend is snake_case (idiomatic Laravel) while the Flutter app uses
+camelCase, so the app's models carry two mappers: `fromApi`/`toApi` for the wire
+format below, and `fromJson`/`toJson` for its own local cache.
+
+| Flutter app (camelCase) | Backend (snake_case)          | Notes                            |
+| ----------------------- | ----------------------------- | -------------------------------- |
+| `startTime`             | `start_time`                  | `"HH:MM"` string, both sides      |
+| `endTime`               | `end_time`                    | `"HH:MM"` string, both sides      |
+| `subTasks`              | `sub_tasks`                   | array of `{title, is_done}`       |
+| `isDone`                | `is_done`                     |                                   |
+| `isSuccess` / `isRead`  | `is_success` / `is_read`      |                                   |
+| `createdAt` / `updatedAt` | `created_at` / `updated_at` | ISO-8601 UTC, converted to local  |
+| `date` (`DateTime`)     | `date` (`"YYYY-MM-DD"`)       | `AppDateUtils.isoDate` on the way out |
 
 Two deliberate divergences worth knowing:
 
 1. **Sub-task ids** — the server generates them (UUIDs) and returns them; on
-   update the server *replaces* the sub-task list, so ids may change. A more
-   advanced server would reconcile by id; the README's [Going to
-   production](#going-to-production) mentions this.
-2. **Date format** — the backend returns ISO 8601 / `YYYY-MM-DD`, which is
-   idiomatic. The Flutter app stores epoch milliseconds; converting is a
-   one-liner (`DateTime.parse(...)` / `date.millisecondsSinceEpoch`).
+   update the server *replaces* the sub-task list, so ids change. The client
+   therefore only ever toggles using ids from the most recent response, and never
+   sends sub-task ids back.
+2. **Ids are server-assigned** — `Task`, `SubTask`, `Note` and `Alert` ids are
+   UUIDs generated here; `users.id` is an auto-increment integer. The client sends
+   no ids on create.
 
 ---
 
 ## Password hashing: bcrypt vs PBKDF2
 
-The Flutter app stores passwords as **PBKDF2-HMAC-SHA256** (100,000 iterations,
-per-user salt) because it runs fully offline. This backend uses Laravel's
-default **bcrypt** via the `hashed` cast on `User`:
+The Flutter app **no longer hashes passwords at all**. It used to store
+PBKDF2-HMAC-SHA256 hashes (100,000 iterations, per-user salt) because it ran
+fully offline with a local-only account store; now that it is wired to this API
+it sends the plaintext password once, over the wire, and keeps only the opaque
+Sanctum token that comes back. Verification and hashing are entirely
+server-side.
+
+This backend uses Laravel's default **bcrypt** via the `hashed` cast on `User`:
 
 ```php
 // User model
@@ -581,18 +625,22 @@ protected function casts(): array
 
 So `User::create(['password' => $plain])` stores a bcrypt hash, and login
 verifies with `Hash::check($plain, $user->password)`. bcrypt is the idiomatic
-Laravel choice; PBKDF2 is only special because the *offline app* needed it.
+Laravel choice — slow to brute-force and battle-tested.
 
-If you later want the two to share hashes, you can register a custom hasher:
+If you ever wanted a client that *did* hash locally, you can register a custom
+hasher:
 
 ```php
-// PBKDF2-HMAC-SHA256, matching the Flutter app's scheme
+// PBKDF2-HMAC-SHA256, if a client needed to derive keys on-device
 $hash = base64_encode(hash_pbkdf2('sha256', $password, base64_decode($salt), 100000, 32, true));
 ```
 
 Laravel's `Hash` manager is extensible (`Hash::extend(...)`), but for a normal
-server app, bcrypt (or Argon2) is the right default — it's slow-to-brute-force
-and battle-tested.
+server app bcrypt (or Argon2) is the right default.
+
+**HTTPS is the remaining gap.** The dev setup sends credentials in plaintext over
+the LAN, which is fine on a trusted network with a debug build and unacceptable
+anywhere else — see [Going to production](#going-to-production).
 
 ---
 

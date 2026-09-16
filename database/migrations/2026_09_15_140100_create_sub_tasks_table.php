@@ -14,15 +14,13 @@ return new class extends Migration
         Schema::create('sub_tasks', function (Blueprint $table) {
             $table->uuid('id')->primary();
 
-            // foreignUuid() creates a uuid column constrained to tasks.id, and
-            // cascadeOnDelete() removes sub-tasks when their task is deleted.
+            // Owning task; deleting the task deletes its sub-tasks.
             $table->foreignUuid('task_id')->constrained()->cascadeOnDelete();
 
             $table->string('title');
             $table->boolean('is_done')->default(false);
 
-            // Explicit ordering so the checklist preserves the client's order
-            // even when several sub-tasks are inserted in the same second.
+            // Ordering position within the checklist.
             $table->unsignedInteger('position')->default(0);
 
             $table->timestamps();

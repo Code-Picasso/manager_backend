@@ -1,10 +1,9 @@
 #!/bin/sh
-# Entrypoint for the app container. Runs on every `docker compose up`.
+# App container entrypoint — runs on every `docker compose up`.
 
 set -e
 
-# Wait until MySQL actually accepts connections. The app container may start
-# before MySQL has finished initialising, so we poll with a tiny PDO probe.
+# Poll until MySQL accepts connections (it may still be initialising).
 until php -r "new PDO('mysql:host=' . getenv('DB_HOST') . ';dbname=' . getenv('DB_DATABASE'), getenv('DB_USERNAME'), getenv('DB_PASSWORD'));" 2>/dev/null; do
     echo "Waiting for MySQL at ${DB_HOST}..."
     sleep 2

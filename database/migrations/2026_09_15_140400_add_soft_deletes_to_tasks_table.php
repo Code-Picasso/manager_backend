@@ -12,10 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tasks', function (Blueprint $table) {
-            // A nullable `deleted_at` column is all "soft deletes" needs. With
-            // it, deleting a task only *marks* it as deleted, so the app's
-            // "Undo" button can bring it back — with the same id, and with its
-            // sub-tasks still attached.
+            // Adds the nullable deleted_at column used for soft deletes.
             $table->softDeletes();
         });
     }

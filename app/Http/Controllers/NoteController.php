@@ -11,15 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
-/**
- * CRUD for notes. Notes are the simplest aggregate in the app, which makes this
- * controller a good "skeleton" to read first before TaskController.
- */
+/** CRUD for notes. */
 class NoteController extends Controller
 {
-    /**
-     * List the user's notes, most recently updated first (matching the app).
-     */
+    /** List the user's notes, most recently updated first. */
     public function index(Request $request): AnonymousResourceCollection
     {
         $notes = $request->user()
@@ -30,10 +25,7 @@ class NoteController extends Controller
         return NoteResource::collection($notes);
     }
 
-    /**
-     * Create a note. The `updated_at`/`created_at` timestamps are set by
-     * Eloquent automatically.
-     */
+    /** Create a note. */
     public function store(StoreNoteRequest $request): JsonResponse
     {
         $note = $request->user()->notes()->create($request->validated());
@@ -41,9 +33,7 @@ class NoteController extends Controller
         return (new NoteResource($note))->response()->setStatusCode(201);
     }
 
-    /**
-     * Show a single note.
-     */
+    /** Show a single note. */
     public function show(Request $request, Note $note): NoteResource
     {
         abort_unless($note->user_id === $request->user()->id, 404);
@@ -51,9 +41,7 @@ class NoteController extends Controller
         return new NoteResource($note);
     }
 
-    /**
-     * Update a note (title and/or content).
-     */
+    /** Update a note (title and/or content). */
     public function update(UpdateNoteRequest $request, Note $note): NoteResource
     {
         abort_unless($note->user_id === $request->user()->id, 404);
@@ -63,9 +51,7 @@ class NoteController extends Controller
         return new NoteResource($note->fresh());
     }
 
-    /**
-     * Delete a note.
-     */
+    /** Delete a note. */
     public function destroy(Request $request, Note $note): Response
     {
         abort_unless($note->user_id === $request->user()->id, 404);

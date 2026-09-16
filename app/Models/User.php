@@ -39,11 +39,6 @@ class User extends Authenticatable
     /**
      * Get the attributes that should be cast.
      *
-     * The `hashed` cast is a Laravel convenience: whenever `password` is set
-     * on the model, it is automatically run through the bcrypt hasher before
-     * being written to the database. That is why AuthController::register never
-     * calls Hash::make itself — the cast does it.
-     *
      * @return array<string, string>
      */
     protected function casts(): array
@@ -54,25 +49,19 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * Every task owned by this user.
-     */
+    /** Every task owned by this user. */
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
     }
 
-    /**
-     * Every note owned by this user.
-     */
+    /** Every note owned by this user. */
     public function notes(): HasMany
     {
         return $this->hasMany(Note::class);
     }
 
-    /**
-     * Every alert owned by this user.
-     */
+    /** Every alert owned by this user. */
     public function alerts(): HasMany
     {
         return $this->hasMany(Alert::class);

@@ -5,29 +5,16 @@ namespace App\Http\Requests;
 use App\Rules\StrongPassword;
 use Illuminate\Foundation\Http\FormRequest;
 
-/**
- * Validates the "create an account" request.
- *
- * A Form Request centralises validation (and, via authorize(), authorization)
- * outside the controller. Laravel runs the rules *before* the controller
- * method executes and, on failure, returns a 422 JSON response automatically —
- * the controller can assume the data is already valid.
- */
+/** Validates the "create an account" request. */
 class RegisterRequest extends FormRequest
 {
-    /**
-     * Whether the current user is allowed to make this request. Registration is
-     * public, so anyone may.
-     */
+    /** Anyone may register. */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * The validation rules. The password policy lives in the reusable
-     * StrongPassword rule object (shared with reset-password / change-password).
-     */
+    /** The validation rules for a new account. */
     public function rules(): array
     {
         return [

@@ -4,21 +4,24 @@ namespace App\Http\Requests;
 
 use App\Enums\TaskCategory;
 use App\Enums\TaskStatus;
+use App\Http\Requests\Concerns\NormalizesEmptyText;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-/**
- * Validates the "update a task" request.
- *
- * The Flutter app's updateTask overwrites the whole task (including its
- * sub-task list), so this mirrors that full-replacement contract with the same
- * rules as creation. The controller replaces the sub-task list accordingly.
- */
+/** Validates the "update a task" request. */
 class UpdateTaskRequest extends FormRequest
 {
+    use NormalizesEmptyText;
+
     public function authorize(): bool
     {
         return true;
+    }
+
+    /** Normalizes an empty description field to an empty string. */
+    protected function prepareForValidation(): void
+    {
+        $this->normalizeEmptyText(['description']);
     }
 
     public function rules(): array

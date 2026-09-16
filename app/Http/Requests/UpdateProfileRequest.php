@@ -4,10 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-/**
- * Validates the "update my profile" request (only the display name is editable,
- * matching the Flutter app's profile screen).
- */
+/** Validates the "update my profile" request; only the display name is editable. */
 class UpdateProfileRequest extends FormRequest
 {
     public function authorize(): bool

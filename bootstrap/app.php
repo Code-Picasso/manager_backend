@@ -12,8 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Apply the "api" rate limiter (defined in AppServiceProvider) to the
-        // whole /api middleware group.
+        // Apply the "api" rate limiter to every /api route.
         $middleware->throttleApi('api');
     })
     ->withExceptions(function (Exceptions $exceptions): void {

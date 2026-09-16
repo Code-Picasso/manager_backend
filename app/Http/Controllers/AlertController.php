@@ -3,25 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\AlertResource;
+use App\Services\TaskAlertsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
-/**
- * Read endpoints for alerts.
- *
- * Alerts are derived from tasks and reconciled after every task mutation (see
- * TaskController + TaskAlertsService), so this controller only *reads* them —
- * there is no "create alert" endpoint.
- */
+/** Read-only endpoints for alerts derived from tasks. */
 class AlertController extends Controller
 {
-    /**
-     * List the user's alerts, newest first.
-     */
+    public function __construct(private readonly TaskAlertsService $alerts) {}
+
+    /** List the user's alerts, newest first. */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $alerts = $request->user()
+        $user = $request->user();
+
+        try {
+            $this->alerts->syncForUser($user);
+        } catch (\Throwable $e) {
+            // Falls back to the stored alerts if the sync fails.
+            report($e);
+        }
+
+        $alerts = $user
             ->alerts()
             ->latest('created_at')
             ->get();
@@ -29,10 +33,7 @@ class AlertController extends Controller
         return AlertResource::collection($alerts);
     }
 
-    /**
-     * Mark every alert as read. Called when the alerts screen opens so the
-     * unread badge clears.
-     */
+    /** Mark every alert as read. */
     public function markAllRead(Request $request): JsonResponse
     {
         $request->user()
