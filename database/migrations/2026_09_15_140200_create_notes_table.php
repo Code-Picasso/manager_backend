@@ -15,7 +15,8 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('title');
-            $table->text('content')->default('');
+            // MySQL cannot default a TEXT column; Note::$attributes supplies the ''.
+            $table->text('content');
 
             // Eloquent maintains created_at / updated_at automatically.
             $table->timestamps();

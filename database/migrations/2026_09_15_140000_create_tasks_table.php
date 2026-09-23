@@ -19,7 +19,8 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
 
             $table->string('title');
-            $table->text('description')->default('');
+            // MySQL cannot default a TEXT column; Task::$attributes supplies the ''.
+            $table->text('description');
 
             // Stored as strings; the Task model casts these to backed enums.
             $table->string('category')->default('work');
