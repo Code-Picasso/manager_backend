@@ -1,16 +1,9 @@
-# Ignore local-only / generated files when building the Docker image.
 .git
-.github
 .gitignore
 .env
 .env.*
 !.env.example
-vendor
-node_modules
-storage/logs/*
-storage/framework/cache/*
-storage/framework/sessions/*
-storage/framework/views/*
-.phpunit.result.cache
-.DS_Store
 *.md
+.DS_Store
+bin/
+manager-backend

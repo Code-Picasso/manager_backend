@@ -1,73 +1,51 @@
 services:
-  # The Laravel API application.
+  # The Go API.
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: manager_app
     restart: unless-stopped
-    working_dir: /var/www/html
     environment:
       APP_NAME: "M.N.G.R Manager"
-      APP_ENV: local
-      APP_DEBUG: "true"
-      APP_URL: http://localhost:8000
-
-      # App encryption key — regenerate with php -r "echo 'base64:'.base64_encode(random_bytes(32));"
-      APP_KEY: "base64:X0uXDCwuLlee1PMA1XcbfIJ+j6BCyeuxCX1Lyte+gVA="
-
-      # MySQL connection settings, injected into the container environment.
-      DB_CONNECTION: mysql
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_DATABASE: manager
-      DB_USERNAME: manager
-      DB_PASSWORD: secret
-
-      SESSION_DRIVER: database
-      CACHE_STORE: database
-      QUEUE_CONNECTION: database
-
+      PORT: "8000"
+      DATABASE_URL: postgres://manager:secret@db:5432/manager?sslmode=disable
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
 
-  # MySQL 8 — the database.
+  # PostgreSQL — the database.
   db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     container_name: manager_db
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: manager
-      MYSQL_USER: manager
-      MYSQL_PASSWORD: secret
-      MYSQL_ROOT_PASSWORD: rootsecret
+      POSTGRES_DB: manager
+      POSTGRES_USER: manager
+      POSTGRES_PASSWORD: secret
     ports:
-      # Exposed so you can connect with a local MySQL client too.
-      - "3306:3306"
+      - "5433:5432"
     volumes:
-      # Named volume so data survives `docker compose down`.
-      - db_data:/var/lib/mysql
+      - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootsecret"]
+      test: ["CMD-SHELL", "pg_isready -U manager -d manager"]
       interval: 5s
       timeout: 5s
       retries: 12
 
-  # phpMyAdmin — database UI at http://localhost:8080 (user "manager", password "secret").
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    container_name: manager_pma
+  # Adminer — database UI at http://localhost:8080 (system "PostgreSQL", server "db", user "manager", password "secret").
+  adminer:
+    image: adminer
+    container_name: manager_adminer
     restart: unless-stopped
     environment:
-      PMA_HOST: db
-      PMA_PORT: 3306
+      ADMINER_DEFAULT_SERVER: db
     ports:
-      - "8080:80"
+      - "8080:8080"
     depends_on:
       - db
 
 volumes:
-  db_data:
+  pg_data:
