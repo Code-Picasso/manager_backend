@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"strings"
 
 	"manager-backend/internal/auth"
 )
@@ -14,20 +13,14 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	name, nameOK := requiredString(m, "name", e)
 	if nameOK {
 		maxLength(name, "name", 255, e)
-	}
-
-	email, emailOK := requiredEmail(m, "email", e)
-	if emailOK {
-		email = strings.ToLower(strings.TrimSpace(email))
-		maxLength(email, "email", 255, e)
-		if len(e["email"]) == 0 {
-			_, err := s.store.FindUserByEmail(r.Context(), email)
+		if len(e["name"]) == 0 {
+			_, err := s.store.FindUserByName(r.Context(), name)
 			if err != nil && !isNotFound(err) {
 				serverError(w, err)
 				return
 			}
 			if err == nil {
-				e.add("email", "The email has already been taken.")
+				e.add("name", "The name has already been taken.")
 			}
 		}
 	}
@@ -50,7 +43,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.store.CreateUser(r.Context(), name, email, hash)
+	user, err := s.store.CreateUser(r.Context(), name, hash)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -72,10 +65,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	m := readBody(r)
 	e := validationErrors{}
 
-	email, emailOK := requiredEmail(m, "email", e)
-	if emailOK {
-		email = strings.ToLower(strings.TrimSpace(email))
-	}
+	name, _ := requiredString(m, "name", e)
 	password, _ := requiredString(m, "password", e)
 
 	if len(e) > 0 {
@@ -83,7 +73,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.store.FindUserByEmail(r.Context(), email)
+	user, err := s.store.FindUserByName(r.Context(), name)
 	if err != nil {
 		if isNotFound(err) {
 			writeError(w, http.StatusUnauthorized, "The provided credentials are incorrect.")
@@ -113,11 +103,7 @@ func (s *Server) resetPassword(w http.ResponseWriter, r *http.Request) {
 	m := readBody(r)
 	e := validationErrors{}
 
-	email, emailOK := requiredEmail(m, "email", e)
-	if emailOK {
-		email = strings.ToLower(strings.TrimSpace(email))
-	}
-
+	name, nameOK := requiredString(m, "name", e)
 	password, passwordOK := requiredString(m, "password", e)
 	if passwordOK {
 		if msg := auth.StrongPasswordError(password); msg != "" {
@@ -126,11 +112,11 @@ func (s *Server) resetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var userID int64
-	if len(e["email"]) == 0 {
-		user, err := s.store.FindUserByEmail(r.Context(), email)
+	if nameOK {
+		user, err := s.store.FindUserByName(r.Context(), name)
 		if err != nil {
 			if isNotFound(err) {
-				e.add("email", "The selected email is invalid.")
+				e.add("name", "The selected name is invalid.")
 			} else {
 				serverError(w, err)
 				return

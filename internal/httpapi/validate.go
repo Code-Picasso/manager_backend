@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"net/mail"
 	"regexp"
 	"strconv"
 	"time"
@@ -15,11 +14,6 @@ func (e validationErrors) add(field, message string) {
 }
 
 var hhmmPattern = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
-
-func validEmail(s string) bool {
-	addr, err := mail.ParseAddress(s)
-	return err == nil && addr.Address == s
-}
 
 // requiredString validates a required, non-empty string field.
 func requiredString(m map[string]any, key string, e validationErrors) (string, bool) {
@@ -45,19 +39,6 @@ func maxLength(s, key string, max int, e validationErrors) {
 	if utf8.RuneCountInString(s) > max {
 		e.add(key, "The "+key+" field must not be greater than "+strconv.Itoa(max)+" characters.")
 	}
-}
-
-// requiredEmail validates a required email string.
-func requiredEmail(m map[string]any, key string, e validationErrors) (string, bool) {
-	s, ok := requiredString(m, key, e)
-	if !ok {
-		return "", false
-	}
-	if !validEmail(s) {
-		e.add(key, "The "+key+" field must be a valid email address.")
-		return "", false
-	}
-	return s, true
 }
 
 // requiredEnum validates a required string against allowed values.

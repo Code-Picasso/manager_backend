@@ -18,9 +18,8 @@ func (t apiTime) MarshalJSON() ([]byte, error) {
 }
 
 type userResponse struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 type subTaskResponse struct {
@@ -62,7 +61,7 @@ type alertResponse struct {
 }
 
 func newUserResponse(u models.User) userResponse {
-	return userResponse{ID: u.ID, Name: u.Name, Email: u.Email}
+	return userResponse{ID: u.ID, Name: u.Name}
 }
 
 func newTaskResponse(t models.Task) taskResponse {

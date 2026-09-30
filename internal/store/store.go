@@ -27,22 +27,22 @@ func New(pool *pgxpool.Pool) *Store {
 }
 
 // CreateUser inserts a user and returns it.
-func (s *Store) CreateUser(ctx context.Context, name, email, passwordHash string) (models.User, error) {
+func (s *Store) CreateUser(ctx context.Context, name, passwordHash string) (models.User, error) {
 	var u models.User
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email`,
-		name, email, passwordHash,
-	).Scan(&u.ID, &u.Name, &u.Email)
+		`INSERT INTO users (name, password) VALUES ($1, $2) RETURNING id, name`,
+		name, passwordHash,
+	).Scan(&u.ID, &u.Name)
 	return u, err
 }
 
-// FindUserByEmail returns a user by email, or ErrNotFound.
-func (s *Store) FindUserByEmail(ctx context.Context, email string) (models.User, error) {
+// FindUserByName returns a user by name, or ErrNotFound.
+func (s *Store) FindUserByName(ctx context.Context, name string) (models.User, error) {
 	var u models.User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, name, email, password FROM users WHERE email = $1`,
-		email,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.Password)
+		`SELECT id, name, password FROM users WHERE name = $1`,
+		name,
+	).Scan(&u.ID, &u.Name, &u.Password)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return u, ErrNotFound
 	}
@@ -53,9 +53,9 @@ func (s *Store) FindUserByEmail(ctx context.Context, email string) (models.User,
 func (s *Store) FindUserByID(ctx context.Context, id int64) (models.User, error) {
 	var u models.User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, name, email FROM users WHERE id = $1`,
+		`SELECT id, name FROM users WHERE id = $1`,
 		id,
-	).Scan(&u.ID, &u.Name, &u.Email)
+	).Scan(&u.ID, &u.Name)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return u, ErrNotFound
 	}
@@ -66,9 +66,9 @@ func (s *Store) FindUserByID(ctx context.Context, id int64) (models.User, error)
 func (s *Store) UpdateUserName(ctx context.Context, id int64, name string) (models.User, error) {
 	var u models.User
 	err := s.pool.QueryRow(ctx,
-		`UPDATE users SET name = $2, updated_at = now() WHERE id = $1 RETURNING id, name, email`,
+		`UPDATE users SET name = $2, updated_at = now() WHERE id = $1 RETURNING id, name`,
 		id, name,
-	).Scan(&u.ID, &u.Name, &u.Email)
+	).Scan(&u.ID, &u.Name)
 	return u, err
 }
 
@@ -100,9 +100,9 @@ func (s *Store) CreateToken(ctx context.Context, userID int64, tokenHash string)
 func (s *Store) UserForToken(ctx context.Context, tokenHash string) (models.User, error) {
 	var u models.User
 	err := s.pool.QueryRow(ctx,
-		`SELECT u.id, u.name, u.email, u.password FROM personal_access_tokens t JOIN users u ON u.id = t.user_id WHERE t.token = $1`,
+		`SELECT u.id, u.name, u.password FROM personal_access_tokens t JOIN users u ON u.id = t.user_id WHERE t.token = $1`,
 		tokenHash,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.Password)
+	).Scan(&u.ID, &u.Name, &u.Password)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return u, ErrNotFound
 	}

@@ -27,7 +27,7 @@ import (
 
 var (
 	testPool *pgxpool.Pool
-	emailSeq atomic.Int64
+	nameSeq  atomic.Int64
 )
 
 func TestMain(m *testing.M) {
@@ -95,8 +95,8 @@ func resetDB() {
 	}
 }
 
-func uniqueEmail() string {
-	return fmt.Sprintf("user%d@example.com", emailSeq.Add(1))
+func uniqueName() string {
+	return fmt.Sprintf("user%d", nameSeq.Add(1))
 }
 
 func todayStr() string {
@@ -164,7 +164,7 @@ func (e *testEnv) createUser() (models.User, string) {
 	if err != nil {
 		e.t.Fatalf("hash password: %v", err)
 	}
-	u, err := e.store.CreateUser(context.Background(), "Test User", uniqueEmail(), hash)
+	u, err := e.store.CreateUser(context.Background(), uniqueName(), hash)
 	if err != nil {
 		e.t.Fatalf("create user: %v", err)
 	}
@@ -180,10 +180,10 @@ func (e *testEnv) createUser() (models.User, string) {
 }
 
 // registerUser registers over HTTP and returns the token.
-func (e *testEnv) registerUser(name, email, password string) string {
+func (e *testEnv) registerUser(name, password string) string {
 	e.t.Helper()
 	status, body := e.do("POST", "/api/register", "", map[string]any{
-		"name": name, "email": email, "password": password,
+		"name": name, "password": password,
 	})
 	if status != http.StatusCreated {
 		e.t.Fatalf("register status = %d, body = %s", status, body)

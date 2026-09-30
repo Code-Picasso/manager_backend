@@ -32,7 +32,7 @@ Smoke test:
 ```bash
 curl -X POST http://localhost:8000/api/register \
   -H 'Content-Type: application/json' \
-  -d '{"name":"Ada","email":"ada@example.com","password":"Secret123!"}'
+  -d '{"name":"Ada","password":"Secret123!"}'
 
 curl http://localhost:8000/api/tasks \
   -H 'Authorization: Bearer <TOKEN>'

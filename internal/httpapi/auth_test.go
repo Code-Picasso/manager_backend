@@ -11,7 +11,7 @@ func TestRegister(t *testing.T) {
 	env := newTestEnv(t)
 
 	status, body := env.do("POST", "/api/register", "", map[string]any{
-		"name": "Ada Lovelace", "email": "ada@example.com", "password": "Secret123!",
+		"name": "Ada Lovelace", "password": "Secret123!",
 	})
 	if status != http.StatusCreated {
 		t.Fatalf("status = %d, body = %s", status, body)
@@ -28,7 +28,7 @@ func TestRegisterRejectsWeakPassword(t *testing.T) {
 	env := newTestEnv(t)
 
 	status, body := env.do("POST", "/api/register", "", map[string]any{
-		"name": "Ada", "email": "ada@example.com", "password": "weak",
+		"name": "Ada", "password": "weak",
 	})
 	if status != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, body = %s", status, body)
@@ -38,44 +38,33 @@ func TestRegisterRejectsWeakPassword(t *testing.T) {
 	}
 }
 
-func TestRegisterRejectsDuplicateEmail(t *testing.T) {
+func TestRegisterRejectsDuplicateName(t *testing.T) {
 	env := newTestEnv(t)
-	env.registerUser("Ada", "ada@example.com", "Secret123!")
+	env.registerUser("Ada", "Secret123!")
 
 	status, body := env.do("POST", "/api/register", "", map[string]any{
-		"name": "Ada", "email": "ada@example.com", "password": "Secret123!",
+		"name": "Ada", "password": "Secret123!",
 	})
 	if status != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, body = %s", status, body)
 	}
-	if _, ok := jsonErrors(t, body)["email"]; !ok {
-		t.Fatalf("missing email error: %s", body)
-	}
-}
-
-func TestEmailIsNormalisedToLowercase(t *testing.T) {
-	env := newTestEnv(t)
-
-	env.registerUser("Ada", "ADA@Example.COM", "Secret123!")
-
-	_, err := env.store.FindUserByEmail(t.Context(), "ada@example.com")
-	if err != nil {
-		t.Fatalf("lowercased email not found: %v", err)
+	if _, ok := jsonErrors(t, body)["name"]; !ok {
+		t.Fatalf("missing name error: %s", body)
 	}
 }
 
 func TestLogin(t *testing.T) {
 	env := newTestEnv(t)
-	env.registerUser("Ada", "ada@example.com", "Secret123!")
+	env.registerUser("Ada", "Secret123!")
 
 	status, body := env.do("POST", "/api/login", "", map[string]any{
-		"email": "ada@example.com", "password": "Secret123!",
+		"name": "Ada", "password": "Secret123!",
 	})
 	if status != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", status, body)
 	}
-	if jsonPath(t, body, "user", "email") != "ada@example.com" {
-		t.Fatalf("wrong email: %s", body)
+	if jsonPath(t, body, "user", "name") != "Ada" {
+		t.Fatalf("wrong name: %s", body)
 	}
 	if jsonPath(t, body, "token") == "" {
 		t.Fatalf("missing token: %s", body)
@@ -84,10 +73,10 @@ func TestLogin(t *testing.T) {
 
 func TestLoginWithWrongPasswordFails(t *testing.T) {
 	env := newTestEnv(t)
-	env.registerUser("Ada", "ada@example.com", "Secret123!")
+	env.registerUser("Ada", "Secret123!")
 
 	status, _ := env.do("POST", "/api/login", "", map[string]any{
-		"email": "ada@example.com", "password": "WrongPass1!",
+		"name": "Ada", "password": "WrongPass1!",
 	})
 	if status != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", status)
@@ -113,8 +102,8 @@ func TestAuthenticatedUserCanFetchProfile(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", status, body)
 	}
-	if jsonPath(t, body, "email") != u.Email {
-		t.Fatalf("wrong email: %s", body)
+	if jsonPath(t, body, "name") != u.Name {
+		t.Fatalf("wrong name: %s", body)
 	}
 }
 
@@ -146,17 +135,17 @@ func TestLogoutTokenStopsWorking(t *testing.T) {
 
 func TestResetPassword(t *testing.T) {
 	env := newTestEnv(t)
-	env.registerUser("Ada", "ada@example.com", "Secret123!")
+	env.registerUser("Ada", "Secret123!")
 
 	status, _ := env.do("POST", "/api/reset-password", "", map[string]any{
-		"email": "ada@example.com", "password": "NewSecret123!",
+		"name": "Ada", "password": "NewSecret123!",
 	})
 	if status != http.StatusOK {
 		t.Fatalf("reset status = %d", status)
 	}
 
 	status, _ = env.do("POST", "/api/login", "", map[string]any{
-		"email": "ada@example.com", "password": "NewSecret123!",
+		"name": "Ada", "password": "NewSecret123!",
 	})
 	if status != http.StatusOK {
 		t.Fatalf("login with new password status = %d", status)
@@ -188,7 +177,7 @@ func TestChangePassword(t *testing.T) {
 	}
 
 	status, _ = env.do("POST", "/api/login", "", map[string]any{
-		"email": u.Email, "password": "NewSecret123!",
+		"name": u.Name, "password": "NewSecret123!",
 	})
 	if status != http.StatusOK {
 		t.Fatalf("login with new password status = %d", status)
